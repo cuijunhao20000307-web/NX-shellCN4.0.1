@@ -29,7 +29,7 @@ jobs:
             switch-libjpeg-turbo \
             switch-libwebp \
             switch-giflib \
-            switch-usbhsfs \
+            switch-libusbhsfs \
             --needed || true
 
       - name: Fix freetype-config
@@ -89,6 +89,7 @@ jobs:
         run: |
           python3 << 'PY'
           from pathlib import Path
+          import re
 
           p = Path("source/gui.cpp")
           if p.exists():
@@ -115,18 +116,12 @@ jobs:
           p = Path("source/textures.cpp")
           if p.exists():
               s = p.read_text(errors="ignore")
-              s = s.replace(
-                  """bmp_bitmap_callback_vt bitmap_callbacks = {
-              BMP::bitmap_create,
-              BMP::bitmap_destroy,
-              BMP::bitmap_get_buffer,
-              BMP::bitmap_get_bpp
-          };""",
-                  """bmp_bitmap_callback_vt bitmap_callbacks = {
-              BMP::bitmap_create,
-              BMP::bitmap_destroy,
-              BMP::bitmap_get_buffer
-          };"""
+              s = re.sub(
+                  r'bmp_bitmap_callback_vt\s+bitmap_callbacks\s*=\s*\{[^\}]*\};',
+                  'bmp_bitmap_callback_vt bitmap_callbacks = {\n            BMP::bitmap_create,\n            BMP::bitmap_destroy,\n            BMP::bitmap_get_buffer\n        };',
+                  s,
+                  count=1,
+                  flags=re.S
               )
               p.write_text(s)
           PY
