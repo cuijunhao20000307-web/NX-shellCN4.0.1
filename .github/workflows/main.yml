@@ -15,7 +15,7 @@ jobs:
       - name: Install deps
         run: |
           apt-get update
-          apt-get install -y git make pkg-config zip python3
+          apt-get install -y git make pkg-config zip python3 curl
 
           dkp-pacman -Syu --noconfirm || true
 
@@ -44,15 +44,15 @@ jobs:
               ;;
           esac
           EOF
-
           chmod +x /usr/local/bin/freetype-config
 
       - name: Get ImGui
         run: |
           mkdir -p libs
-
           rm -rf libs/imgui
-          git clone --depth 1 --branch v1.89.9 \
+
+          git clone --depth 1 \
+            --branch v1.89.9 \
             https://github.com/ocornut/imgui.git \
             libs/imgui
 
@@ -74,8 +74,15 @@ jobs:
           find /tmp/libnsbmp-src -name "*.h" -exec cp {} libs/libnsbmp/ \;
           find /tmp/libnsbmp-src -name "*.c" -exec cp {} libs/libnsbmp/ \;
 
-          echo "===== libnsbmp ====="
-          ls -la libs/libnsbmp
+      - name: Get stb_image
+        run: |
+          mkdir -p libs
+
+          curl -L \
+            https://raw.githubusercontent.com/nothings/stb/master/stb_image.h \
+            -o libs/stb_image.h
+
+          ls -la libs/stb_image.h
 
       - name: Patch source compatibility
         run: |
