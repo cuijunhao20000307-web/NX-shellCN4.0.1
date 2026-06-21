@@ -69,13 +69,13 @@ namespace ImageViewer {
         if (key & HidNpadButton_X)
             properties = !properties;
         
-        if (ImGui::IsKeyDown(ImGuiKey_GamepadDpadDown)) {
+        if (ImGui::IsKeyDown(ImGuiKey_DownArrow)) {
             data.zoom_factor -= 0.5f * ImGui::GetIO().DeltaTime;
             
             if (data.zoom_factor < 0.1f)
                 data.zoom_factor = 0.1f;
         }
-        else if (ImGui::IsKeyDown(ImGuiKey_GamepadDpadUp)) {
+        else if (ImGui::IsKeyDown(ImGuiKey_UpArrow)) {
             data.zoom_factor += 0.5f * ImGui::GetIO().DeltaTime;
             
             if (data.zoom_factor > 5.0f)
@@ -110,7 +110,7 @@ namespace Windows {
         Windows::SetupWindow();
         
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-        ImGuiWindowFlags_ filename_flag = !cfg.image_filename? ImGuiWindowFlags_NoTitleBar : ImGuiWindowFlags_None;
+        ImGuiWindowFlags_ filename_flag = !cfg.image_filename ? ImGuiWindowFlags_NoTitleBar : ImGuiWindowFlags_None;
         
         if (ImGui::Begin(data.entries[data.selected].name, nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar | filename_flag)) {
             if (((data.textures[0].width * data.zoom_factor) <= 1280) && ((data.textures[0].height * data.zoom_factor) <= 720))
@@ -122,7 +122,6 @@ namespace Windows {
                     (data.textures[data.frame_count].height * data.zoom_factor))));
                 data.frame_count++;
                 
-                // Reset frame counter
                 if (data.frame_count == data.textures.size() - 1)
                     data.frame_count = 0;
             }
