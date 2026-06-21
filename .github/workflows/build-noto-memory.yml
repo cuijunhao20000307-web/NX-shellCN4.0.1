@@ -49,6 +49,37 @@ jobs:
           cp /tmp/libusbhsfs/include/usbhsfs.h libs/usbhsfs.h
           curl -L https://raw.githubusercontent.com/nothings/stb/master/stb_image.h -o libs/stb_image.h
 
+      - name: Apply compiler compatibility fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('source/image.cpp')
+          if p.exists():
+              s = p.read_text(errors='ignore')
+              if 'IMGUI_DEFINE_MATH_OPERATORS' not in s.splitlines()[:5]:
+                  s = '#define IMGUI_DEFINE_MATH_OPERATORS\n' + s
+              s = s.replace('#define IMGUI_DEFINE_MATH_OPERATORS\n#include "imgui_internal.h"', '#include "imgui_internal.h"')
+              s = s.replace('ImGuiKey_GamepadDpadDown', 'ImGuiKey_DownArrow')
+              s = s.replace('ImGuiKey_GamepadDpadUp', 'ImGuiKey_UpArrow')
+              p.write_text(s)
+          p = Path('source/tabs/settings.cpp')
+          if p.exists():
+              s = p.read_text(errors='ignore')
+              if 'IMGUI_DEFINE_MATH_OPERATORS' not in s.splitlines()[:5]:
+                  p.write_text('#define IMGUI_DEFINE_MATH_OPERATORS\n' + s)
+          p = Path('source/popups/properties.cpp')
+          if p.exists():
+              s = p.read_text(errors='ignore')
+              if '#include <ctime>' not in s:
+                  p.write_text(s.replace('#include "utils.hpp"', '#include "utils.hpp"\n#include <ctime>'))
+          p = Path('source/textures.cpp')
+          if p.exists():
+              s = p.read_text(errors='ignore')
+              s = re.sub(r'bmp_bitmap_callback_vt\s+bitmap_callbacks\s*=\s*\{[^\}]*\};', 'bmp_bitmap_callback_vt bitmap_callbacks = {\n            BMP::bitmap_create,\n            BMP::bitmap_destroy,\n            BMP::bitmap_get_buffer\n        };', s, count=1, flags=re.S)
+              p.write_text(s)
+          PY
+
       - name: Compile NRO
         run: |
           make clean
