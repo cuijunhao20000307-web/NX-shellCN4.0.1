@@ -33,7 +33,7 @@ jobs:
           )
           s = s.replace(
               'io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;',
-              'cfg.multi_lang = false; // Prevent unsafe extra glyph-range merging in the Chinese build.\n\n        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;'
+              'cfg.multi_lang = false; // Avoid unsafe extra glyph-range merging.\n\n        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;'
           )
           p.write_text(s)
           PY
@@ -123,7 +123,7 @@ jobs:
               s = p.read_text(errors='ignore')
               if 'IMGUI_DEFINE_MATH_OPERATORS' not in s.splitlines()[:5]:
                   s = '#define IMGUI_DEFINE_MATH_OPERATORS\n' + s
-              s = s.replace('#define IMGUI_DEFINE_MATH_OPERATORS\n#include "imgui_internal.h"', '#include "imgui_internal.h')
+              s = s.replace('#define IMGUI_DEFINE_MATH_OPERATORS\n#include "imgui_internal.h"', '#include "imgui_internal.h"')
               s = s.replace('ImGuiKey_GamepadDpadDown', 'ImGuiKey_DownArrow')
               s = s.replace('ImGuiKey_GamepadDpadUp', 'ImGuiKey_UpArrow')
               p.write_text(s)
