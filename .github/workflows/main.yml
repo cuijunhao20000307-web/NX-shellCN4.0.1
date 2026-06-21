@@ -15,10 +15,30 @@ jobs:
       - name: Install deps
         run: |
           apt-get update
-          apt-get install -y git make pkg-config zip libfreetype6-dev
-          ln -sf /usr/bin/pkg-config /usr/bin/freetype-config || true
+          apt-get install -y git make pkg-config zip
           dkp-pacman -Syu --noconfirm || true
           dkp-pacman -S --noconfirm switch-dev switch-freetype switch-libpng switch-zlib switch-glad switch-mesa --needed || true
+
+      - name: Fix freetype-config
+        run: |
+          cat > /usr/local/bin/freetype-config <<'EOF'
+          #!/bin/sh
+          case "$1" in
+            --cflags)
+              echo "-I/opt/devkitpro/portlibs/switch/include/freetype2 -I/opt/devkitpro/portlibs/switch/include"
+              ;;
+            --libs)
+              echo "-L/opt/devkitpro/portlibs/switch/lib -lfreetype"
+              ;;
+            *)
+              echo ""
+              ;;
+          esac
+          EOF
+          chmod +x /usr/local/bin/freetype-config
+          which freetype-config
+          freetype-config --cflags
+          freetype-config --libs
 
       - name: Fix imgui dependency
         run: |
