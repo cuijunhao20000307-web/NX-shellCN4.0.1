@@ -30,7 +30,7 @@ jobs:
         run: |
           mkdir -p libs
           rm -rf libs/imgui
-          git clone --depth 1 --branch v1.82 https://github.com/ocornut/imgui.git libs/imgui
+          git clone --depth 1 --branch v1.89.9 https://github.com/ocornut/imgui.git libs/imgui
           mkdir -p libes
           rm -rf libes/imgui
           cp -r libs/imgui libes/imgui
