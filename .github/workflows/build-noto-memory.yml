@@ -1,0 +1,62 @@
+name: Build Noto Memory Font NRO
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate embedded font sources
+        run: |
+          test -s res/NotoSansCJKsc-Regular.otf
+          test -f source/noto_sans_cjk_sc.s
+          grep -q nx_shell_chinese_font_otf source/noto_sans_cjk_sc.s
+          grep -q AddFontFromMemoryTTF source/gui.cpp
+
+      - name: Install toolchain packages
+        run: |
+          apt-get update
+          apt-get install -y git make python3 curl
+          dkp-pacman -Syu --noconfirm || true
+          for p in switch-dev switch-freetype switch-harfbuzz switch-bzip2 switch-libpng switch-zlib switch-glad switch-mesa switch-libjpeg-turbo switch-libwebp switch-giflib; do dkp-pacman -S --noconfirm "$p" --needed || true; done
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '  --cflags) echo "-I/opt/devkitpro/portlibs/switch/include/freetype2 -I/opt/devkitpro/portlibs/switch/include" ;;' '  --libs) echo "-L/opt/devkitpro/portlibs/switch/lib -Wl,--start-group -lfreetype -lharfbuzz -lbz2 -Wl,--end-group" ;;' 'esac' > /usr/local/bin/freetype-config
+          chmod +x /usr/local/bin/freetype-config
+
+      - name: Restore build dependencies
+        run: |
+          rm -rf libs/imgui libes/imgui
+          git clone --depth 1 --branch v1.89.9 https://github.com/ocornut/imgui.git libs/imgui
+          mkdir -p libes
+          cp -r libs/imgui libes/imgui
+          rm -rf /tmp/nx-shell libs/libnsbmp libs/include
+          git clone --depth 1 https://github.com/joel16/NX-Shell.git /tmp/nx-shell
+          mkdir -p libs/libnsbmp/utils libs/include
+          cp /tmp/nx-shell/libs/libnsbmp/libnsbmp.c libs/libnsbmp/libnsbmp.c
+          cp /tmp/nx-shell/libs/libnsbmp/libnsbmp.h libs/libnsbmp/libnsbmp.h
+          cp /tmp/nx-shell/libs/libnsbmp/utils/log.h libs/libnsbmp/utils/log.h
+          cp /tmp/nx-shell/libs/libnsbmp/libnsbmp.h libs/include/libnsbmp.h
+          rm -rf /tmp/libusbhsfs
+          git clone --depth 1 --branch v0.2.7 https://github.com/DarkMatterCore/libusbhsfs.git /tmp/libusbhsfs
+          sed -i 's/-Werror /-Werror -Wno-error=unused-but-set-variable /' /tmp/libusbhsfs/Makefile
+          make -C /tmp/libusbhsfs BUILD_TYPE=ISC release
+          mkdir -p libs/lib
+          cp /tmp/libusbhsfs/lib/libusbhsfs.a libs/lib/libusbhsfs.a
+          cp /tmp/libusbhsfs/include/usbhsfs.h libs/usbhsfs.h
+          curl -L https://raw.githubusercontent.com/nothings/stb/master/stb_image.h -o libs/stb_image.h
+
+      - name: Compile NRO
+        run: |
+          make clean
+          make -j2
+          test -f NX-Shell.nro
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NX-Shell_CN_NotoMemory
+          path: NX-Shell.nro
