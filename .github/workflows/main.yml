@@ -76,6 +76,15 @@ jobs:
 
           find /tmp/libnsbmp-src -name "*.h" -exec cp {} libs/libnsbmp/ \;
           find /tmp/libnsbmp-src -name "*.c" -exec cp {} libs/libnsbmp/ \;
+          mkdir -p libs/libnsbmp/utils
+cat > libs/libnsbmp/utils/log.h <<'EOF'
+#ifndef LIBNSBMP_UTILS_LOG_H
+#define LIBNSBMP_UTILS_LOG_H
+
+#define LOG(...) ((void)0)
+
+#endif
+EOF
 
           cp libs/libnsbmp/libnsbmp.h libs/include/libnsbmp.h
 
