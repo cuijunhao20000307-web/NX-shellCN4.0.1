@@ -10,6 +10,11 @@
 #include "imgui_impl_switch.hpp"
 #include "log.hpp"
 
+extern "C" {
+    extern const unsigned char nx_shell_chinese_font_otf[];
+    extern const unsigned char nx_shell_chinese_font_otf_end[];
+}
+
 namespace GUI {
     static EGLDisplay s_display = EGL_NO_DISPLAY;
     static EGLContext s_context = EGL_NO_CONTEXT;
@@ -168,56 +173,20 @@ namespace GUI {
         gladLoadGL();
         ImGui_ImplSwitch_Init("#version 130");
 
-        // Use only Switch shared fonts. The standard font remains the base font,
-        // while Chinese and other regional glyphs are merged into it.
-        PlFontData standard, extended, chinese, korean;
-        static ImWchar extended_range[] = {0xE000, 0xE152, 0};
-
         ImFontConfig font_cfg;
         font_cfg.FontDataOwnedByAtlas = false;
 
-        if (R_SUCCEEDED(plGetSharedFontByType(std::addressof(standard), PlSharedFontType_Standard))) {
-            io.Fonts->AddFontFromMemoryTTF(
-                standard.address,
-                standard.size,
-                20.f,
-                std::addressof(font_cfg),
-                io.Fonts->GetGlyphRangesDefault()
-            );
+        ImFont* bundled_chinese_font = io.Fonts->AddFontFromMemoryTTF(
+            const_cast<unsigned char *>(nx_shell_chinese_font_otf),
+            static_cast<int>(nx_shell_chinese_font_otf_end - nx_shell_chinese_font_otf),
+            20.f,
+            std::addressof(font_cfg),
+            io.Fonts->GetGlyphRangesChineseFull()
+        );
 
-            if (cfg.multi_lang) {
-                font_cfg.MergeMode = true;
-
-                if (R_SUCCEEDED(plGetSharedFontByType(std::addressof(extended), PlSharedFontType_NintendoExt))) {
-                    io.Fonts->AddFontFromMemoryTTF(
-                        extended.address,
-                        extended.size,
-                        20.f,
-                        std::addressof(font_cfg),
-                        extended_range
-                    );
-                }
-
-                if (R_SUCCEEDED(plGetSharedFontByType(std::addressof(chinese), PlSharedFontType_ChineseSimplified))) {
-                    io.Fonts->AddFontFromMemoryTTF(
-                        chinese.address,
-                        chinese.size,
-                        20.f,
-                        std::addressof(font_cfg),
-                        io.Fonts->GetGlyphRangesChineseFull()
-                    );
-                }
-
-                if (R_SUCCEEDED(plGetSharedFontByType(std::addressof(korean), PlSharedFontType_KO))) {
-                    io.Fonts->AddFontFromMemoryTTF(
-                        korean.address,
-                        korean.size,
-                        20.f,
-                        std::addressof(font_cfg),
-                        io.Fonts->GetGlyphRangesKorean()
-                    );
-                }
-            }
+        if (!bundled_chinese_font) {
+            Log::Error("Could not load embedded NotoSansCJKsc-Regular font.");
+            return false;
         }
 
         u8 *px = nullptr;
