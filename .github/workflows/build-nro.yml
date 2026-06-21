@@ -65,6 +65,7 @@ jobs:
         run: |
           rm -rf /tmp/libusbhsfs
           git clone --depth 1 --branch v0.2.7 https://github.com/DarkMatterCore/libusbhsfs.git /tmp/libusbhsfs
+          sed -i 's/-Werror /-Werror -Wno-error=unused-but-set-variable /' /tmp/libusbhsfs/Makefile
           make -C /tmp/libusbhsfs BUILD_TYPE=ISC release
           mkdir -p libs/lib
           cp /tmp/libusbhsfs/lib/libusbhsfs.a libs/lib/libusbhsfs.a
