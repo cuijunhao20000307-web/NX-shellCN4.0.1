@@ -1,0 +1,144 @@
+name: Build Official Noto GB2312 7M NRO
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build and font subset tools
+        run: |
+          apt-get update
+          apt-get install -y git make python3 python3-pip curl
+          python3 -m pip install --break-system-packages fonttools
+          dkp-pacman -Syu --noconfirm || true
+          for p in switch-dev switch-freetype switch-harfbuzz switch-bzip2 switch-libpng switch-zlib switch-glad switch-mesa switch-libjpeg-turbo switch-libwebp switch-giflib; do
+            dkp-pacman -S --noconfirm "$p" --needed || true
+          done
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '  --cflags) echo "-I/opt/devkitpro/portlibs/switch/include/freetype2 -I/opt/devkitpro/portlibs/switch/include" ;;' '  --libs) echo "-L/opt/devkitpro/portlibs/switch/lib -Wl,--start-group -lfreetype -lharfbuzz -lbz2 -Wl,--end-group" ;;' 'esac' > /usr/local/bin/freetype-config
+          chmod +x /usr/local/bin/freetype-config
+
+      - name: Create GB2312 balanced Chinese font subset
+        run: |
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf -o /tmp/NotoSansCJKsc-Regular.otf
+          python3 - <<'PY'
+          from pathlib import Path
+          chars = set()
+          # GB2312 contains the common Simplified Chinese range and is the balance point for a ~7 MB package.
+          for lead in range(0xA1, 0xF8):
+              for trail in range(0xA1, 0xFF):
+                  try:
+                      chars.add(bytes((lead, trail)).decode('gb2312'))
+                  except UnicodeDecodeError:
+                      pass
+          chars.update(chr(code) for code in range(0x20, 0x7F))
+          chars.update('，。！？：；（）【】《》“”‘’、·—…￥±×÷=+-_./\\|@#%&*<>')
+          chars.update('文件浏览器设置文件名大小确定取消选项全选属性重命名新建文件夹新建文件复制移动粘贴删除设置归档位')
+          Path('/tmp/nx-shell-gb2312.txt').write_text(''.join(sorted(chars)), encoding='utf-8')
+          print('GB2312 glyph candidates:', len(chars))
+          PY
+          python3 -m fontTools.subset /tmp/NotoSansCJKsc-Regular.otf \
+            --output-file=res/NotoSansCJKsc-GB2312.otf \
+            --text-file=/tmp/nx-shell-gb2312.txt \
+            --layout-features='' \
+            --no-hinting \
+            --drop-tables+=DSIG \
+            --name-IDs='*' \
+            --name-legacy \
+            --symbol-cmap \
+            --legacy-cmap \
+            --notdef-glyph \
+            --notdef-outline \
+            --recommended-glyphs
+          test -s res/NotoSansCJKsc-GB2312.otf
+          echo "Subset font size: $(du -h res/NotoSansCJKsc-GB2312.otf | cut -f1)"
+          sed -i 's#NotoSansCJKsc-Regular.otf#NotoSansCJKsc-GB2312.otf#' source/noto_sans_cjk_sc.s
+
+      - name: Restore project dependencies
+        run: |
+          rm -rf libs/imgui libes/imgui
+          git clone --depth 1 --branch v1.89.9 https://github.com/ocornut/imgui.git libs/imgui
+          mkdir -p libes
+          cp -r libs/imgui libes/imgui
+          rm -rf /tmp/nx-shell libs/libnsbmp libs/include
+          git clone --depth 1 https://github.com/joel16/NX-Shell.git /tmp/nx-shell
+          mkdir -p libs/libnsbmp/utils libs/include
+          cp /tmp/nx-shell/libs/libnsbmp/libnsbmp.c libs/libnsbmp/libnsbmp.c
+          cp /tmp/nx-shell/libs/libnsbmp/libnsbmp.h libs/libnsbmp/libnsbmp.h
+          cp /tmp/nx-shell/libs/libnsbmp/utils/log.h libs/libnsbmp/utils/log.h
+          cp /tmp/nx-shell/libs/libnsbmp/libnsbmp.h libs/include/libnsbmp.h
+          rm -rf /tmp/libusbhsfs
+          git clone --depth 1 --branch v0.2.7 https://github.com/DarkMatterCore/libusbhsfs.git /tmp/libusbhsfs
+          sed -i 's/-Werror /-Werror -Wno-error=unused-but-set-variable /' /tmp/libusbhsfs/Makefile
+          make -C /tmp/libusbhsfs BUILD_TYPE=ISC release
+          mkdir -p libs/lib
+          cp /tmp/libusbhsfs/lib/libusbhsfs.a libs/lib/libusbhsfs.a
+          cp /tmp/libusbhsfs/include/usbhsfs.h libs/usbhsfs.h
+          curl -L https://raw.githubusercontent.com/nothings/stb/master/stb_image.h -o libs/stb_image.h
+
+      - name: Force FreeType and apply compatibility fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('source/gui.cpp')
+          s = p.read_text(errors='ignore')
+          if '#include "imgui_freetype.h"' not in s:
+              s = s.replace('#include "imgui_impl_switch.hpp"', '#include "imgui_impl_switch.hpp"\n#include "imgui_freetype.h"')
+          marker = 'ImGui_ImplSwitch_Init("#version 130");'
+          if 'FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType()' not in s:
+              s = s.replace(marker, marker + '\n\n        io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();')
+          p.write_text(s)
+
+          p = Path('source/image.cpp')
+          if p.exists():
+              s = p.read_text(errors='ignore')
+              if 'IMGUI_DEFINE_MATH_OPERATORS' not in s.splitlines()[:5]:
+                  s = '#define IMGUI_DEFINE_MATH_OPERATORS\n' + s
+              s = s.replace('#define IMGUI_DEFINE_MATH_OPERATORS\n#include "imgui_internal.h"', '#include "imgui_internal.h"')
+              s = s.replace('ImGuiKey_GamepadDpadDown', 'ImGuiKey_DownArrow')
+              s = s.replace('ImGuiKey_GamepadDpadUp', 'ImGuiKey_UpArrow')
+              p.write_text(s)
+
+          p = Path('source/tabs/settings.cpp')
+          if p.exists():
+              s = p.read_text(errors='ignore')
+              if 'IMGUI_DEFINE_MATH_OPERATORS' not in s.splitlines()[:5]:
+                  p.write_text('#define IMGUI_DEFINE_MATH_OPERATORS\n' + s)
+
+          p = Path('source/popups/properties.cpp')
+          if p.exists():
+              s = p.read_text(errors='ignore')
+              if '#include <ctime>' not in s:
+                  p.write_text(s.replace('#include "utils.hpp"', '#include "utils.hpp"\n#include <ctime>'))
+
+          p = Path('source/textures.cpp')
+          if p.exists():
+              s = p.read_text(errors='ignore')
+              s = re.sub(r'bmp_bitmap_callback_vt\s+bitmap_callbacks\s*=\s*\{[^\}]*\};', 'bmp_bitmap_callback_vt bitmap_callbacks = {\n            BMP::bitmap_create,\n            BMP::bitmap_destroy,\n            BMP::bitmap_get_buffer\n        };', s, count=1, flags=re.S)
+              p.write_text(s)
+          PY
+          grep -q 'GetBuilderForFreeType' source/gui.cpp
+          grep -q 'NotoSansCJKsc-GB2312.otf' source/noto_sans_cjk_sc.s
+
+      - name: Build balanced NRO
+        run: |
+          make clean
+          make -j2
+          test -f NX-Shell.nro
+          echo "NRO size: $(du -h NX-Shell.nro | cut -f1)"
+
+      - name: Upload artifact with maximum compression
+        uses: actions/upload-artifact@v4
+        with:
+          name: NX-Shell_CN_Noto_GB2312_7M
+          path: NX-Shell.nro
+          compression-level: 9
+          if-no-files-found: error
