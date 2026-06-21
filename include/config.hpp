@@ -1,0 +1,20 @@
+#pragma once
+
+#include <string>
+#include <switch.h>
+
+typedef struct {
+    int lang = 6;
+    bool dev_options = false;
+    bool image_filename = false;
+    bool multi_lang = true;
+} config_t;
+
+extern config_t cfg;
+extern std::string cwd;
+extern std::string device;
+
+namespace Config {
+    int Save(config_t &config);
+    int Load(void);
+}
