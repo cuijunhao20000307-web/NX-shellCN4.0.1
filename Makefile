@@ -37,7 +37,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   of a homebrew executable (.nro). This is intended to be used for sysmodules.
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
-TARGET		:=	$(notdir $(CURDIR))
+TARGET		:=	NX-Shell
 BUILD		:=	build
 SOURCES		:=	libs/imgui libs/imgui/misc/freetype libs/libnsbmp source source/imgui_nx source/popups source/tabs
 DATA		:=	data
