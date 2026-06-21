@@ -194,7 +194,7 @@ namespace GUI {
         ImFont* bundled_chinese_font = io.Fonts->AddFontFromMemoryTTF(
             const_cast<unsigned char *>(nx_shell_chinese_font_otf),
             static_cast<int>(nx_shell_chinese_font_otf_end - nx_shell_chinese_font_otf),
-            20.f,
+            22.f,
             std::addressof(font_cfg),
             chinese_ranges.Data
         );
