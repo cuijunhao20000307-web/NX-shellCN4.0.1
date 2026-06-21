@@ -17,7 +17,7 @@ jobs:
           apt-get update
           apt-get install -y git make pkg-config zip python3
           dkp-pacman -Syu --noconfirm || true
-          dkp-pacman -S --noconfirm switch-dev switch-freetype switch-libpng switch-zlib switch-glad switch-mesa --needed || true
+          dkp-pacman -S --noconfirm switch-dev switch-freetype switch-libpng switch-zlib switch-glad switch-mesa switch-libjpeg-turbo switch-libwebp switch-giflib switch-libnsbmp switch-libnsgif --needed || true
 
       - name: Fix freetype-config
         run: |
