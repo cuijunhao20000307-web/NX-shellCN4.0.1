@@ -25,6 +25,7 @@ jobs:
           for pkg in \
             switch-dev \
             switch-freetype \
+            switch-harfbuzz \
             switch-bzip2 \
             switch-libpng \
             switch-zlib \
@@ -35,11 +36,12 @@ jobs:
             switch-giflib; do
             dkp-pacman -S --noconfirm "$pkg" --needed || true
           done
+          test -f /opt/devkitpro/portlibs/switch/lib/libharfbuzz.a
           test -f /opt/devkitpro/portlibs/switch/lib/libbz2.a
 
       - name: Fix freetype-config
         run: |
-          printf '%s\n' '#!/bin/sh' 'case "$1" in' '  --cflags)' '    echo "-I/opt/devkitpro/portlibs/switch/include/freetype2 -I/opt/devkitpro/portlibs/switch/include"' '    ;;' '  --libs)' '    echo "-L/opt/devkitpro/portlibs/switch/lib -lfreetype -lbz2"' '    ;;' 'esac' > /usr/local/bin/freetype-config
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '  --cflags)' '    echo "-I/opt/devkitpro/portlibs/switch/include/freetype2 -I/opt/devkitpro/portlibs/switch/include"' '    ;;' '  --libs)' '    echo "-L/opt/devkitpro/portlibs/switch/lib -Wl,--start-group -lfreetype -lharfbuzz -lbz2 -Wl,--end-group"' '    ;;' 'esac' > /usr/local/bin/freetype-config
           chmod +x /usr/local/bin/freetype-config
 
       - name: Get compatible Dear ImGui
