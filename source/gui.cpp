@@ -8,6 +8,7 @@
 #include "config.hpp"
 #include "gui.hpp"
 #include "imgui_impl_switch.hpp"
+#include "language.hpp"
 #include "log.hpp"
 
 extern "C" {
@@ -173,15 +174,29 @@ namespace GUI {
         gladLoadGL();
         ImGui_ImplSwitch_Init("#version 130");
 
+        // ChineseFull creates a very large RGBA atlas in this Switch renderer.
+        // Build only the Chinese glyphs actually used by this translation.
+        ImFontGlyphRangesBuilder glyph_builder;
+        glyph_builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
+        for (int i = 0; i < Lang::Max; ++i)
+            glyph_builder.AddText(strings[6][i]); // Simplified Chinese language table.
+        glyph_builder.AddText("文件浏览器设置文件名大小");
+        glyph_builder.AddText("NX-Shell");
+
+        ImVector<ImWchar> chinese_ranges;
+        glyph_builder.BuildRanges(&chinese_ranges);
+
         ImFontConfig font_cfg;
         font_cfg.FontDataOwnedByAtlas = false;
+        font_cfg.OversampleH = 1;
+        font_cfg.OversampleV = 1;
 
         ImFont* bundled_chinese_font = io.Fonts->AddFontFromMemoryTTF(
             const_cast<unsigned char *>(nx_shell_chinese_font_otf),
             static_cast<int>(nx_shell_chinese_font_otf_end - nx_shell_chinese_font_otf),
             20.f,
             std::addressof(font_cfg),
-            io.Fonts->GetGlyphRangesChineseFull()
+            chinese_ranges.Data
         );
 
         if (!bundled_chinese_font) {
@@ -189,9 +204,7 @@ namespace GUI {
             return false;
         }
 
-        u8 *px = nullptr;
-        int w = 0, h = 0, bpp = 0;
-        io.Fonts->GetTexDataAsAlpha8(std::addressof(px), std::addressof(w), std::addressof(h), std::addressof(bpp));
+        io.Fonts->TexDesiredWidth = 1024;
         io.Fonts->Flags |= ImFontAtlasFlags_NoPowerOfTwoHeight;
         io.Fonts->Build();
 
