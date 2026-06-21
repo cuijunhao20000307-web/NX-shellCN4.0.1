@@ -41,7 +41,7 @@ jobs:
       - name: Restore compatible Dear ImGui source
         run: |
           rm -rf libs/imgui
-          git clone --depth 1 --branch v1.88.2 https://github.com/ocornut/imgui.git libs/imgui
+          git clone --depth 1 --branch v1.89.9 https://github.com/ocornut/imgui.git libs/imgui
           test -f libs/imgui/imgui.cpp
           test -f libs/imgui/misc/freetype/imgui_freetype.cpp
 
