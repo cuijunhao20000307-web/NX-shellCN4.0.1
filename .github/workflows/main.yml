@@ -12,9 +12,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install deps
+        run: |
+          apt-get update
+          apt-get install -y git make pkg-config zip
+          dkp-pacman -Syu --noconfirm || true
+          dkp-pacman -S --noconfirm switch-dev switch-freetype switch-libpng switch-zlib switch-glad switch-mesa --needed || true
+
+      - name: Fix imgui dependency
+        run: |
+          mkdir -p libs
+          rm -rf libs/imgui libes/imgui
+          git clone --depth 1 https://github.com/ocornut/imgui.git libs/imgui
+          mkdir -p libes
+          cp -r libs/imgui libes/imgui
+
       - name: Build
         run: |
-          make
+          make -j2
 
       - name: Upload NRO
         uses: actions/upload-artifact@v4
