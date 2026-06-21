@@ -16,20 +16,11 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Restore stable external Chinese font backend
+      - name: Restore stable embedded Chinese font backend
         run: |
           git fetch -q --depth 1 origin b4c4e03ac725a91146a7098b919e5bcd188363d1
           git show FETCH_HEAD:source/gui.cpp > source/gui.cpp
-          python3 <<'PY'
-          from pathlib import Path
-          p = Path('source/gui.cpp')
-          s = p.read_text(errors='ignore')
-          s = s.replace('romfs:/NotoSansCJKsc-Regular.otf', 'sdmc:/switch/NX-Shell/NotoSansCJKsc-Regular.otf')
-          s = s.replace('prefer bundled Noto Sans CJK SC font from RomFS', 'prefer external Noto Sans CJK SC font from SD card')
-          s = s.replace('even if the system font loading option is disabled', 'without compressing or embedding the font in the NRO')
-          p.write_text(s)
-          PY
-          grep -q 'sdmc:/switch/NX-Shell/NotoSansCJKsc-Regular.otf' source/gui.cpp
+          grep -q 'romfs:/NotoSansCJKsc-Regular.otf' source/gui.cpp
 
       - name: Install dependencies
         shell: bash
