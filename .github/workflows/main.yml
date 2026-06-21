@@ -29,6 +29,7 @@ jobs:
             switch-libjpeg-turbo \
             switch-libwebp \
             switch-giflib \
+            switch-usbhsfs \
             --needed || true
 
       - name: Fix freetype-config
@@ -92,37 +93,41 @@ jobs:
           p = Path("source/gui.cpp")
           if p.exists():
               s = p.read_text(errors="ignore")
-              s = s.replace(
-                  "ImGuiCol_TabSelected",
-                  "ImGuiCol_TabActive"
-              )
+              s = s.replace("ImGuiCol_TabSelected", "ImGuiCol_TabActive")
               p.write_text(s)
 
           p = Path("source/image.cpp")
           if p.exists():
               s = p.read_text(errors="ignore")
-
               s = s.replace(
                   "#include <string>\n",
                   "#define IMGUI_DEFINE_MATH_OPERATORS\n#include <string>\n",
                   1
               )
-
               s = s.replace(
                   '#define IMGUI_DEFINE_MATH_OPERATORS\n#include "imgui_internal.h"',
                   '#include "imgui_internal.h"'
               )
+              s = s.replace("ImGuiKey_GamepadDpadDown", "ImGuiKey_DownArrow")
+              s = s.replace("ImGuiKey_GamepadDpadUp", "ImGuiKey_UpArrow")
+              p.write_text(s)
 
+          p = Path("source/textures.cpp")
+          if p.exists():
+              s = p.read_text(errors="ignore")
               s = s.replace(
-                  "ImGuiKey_GamepadDpadDown",
-                  "ImGuiKey_DownArrow"
+                  """bmp_bitmap_callback_vt bitmap_callbacks = {
+              BMP::bitmap_create,
+              BMP::bitmap_destroy,
+              BMP::bitmap_get_buffer,
+              BMP::bitmap_get_bpp
+          };""",
+                  """bmp_bitmap_callback_vt bitmap_callbacks = {
+              BMP::bitmap_create,
+              BMP::bitmap_destroy,
+              BMP::bitmap_get_buffer
+          };"""
               )
-
-              s = s.replace(
-                  "ImGuiKey_GamepadDpadUp",
-                  "ImGuiKey_UpArrow"
-              )
-
               p.write_text(s)
           PY
 
