@@ -39,9 +39,18 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+
           p = Path('source/gui.cpp')
           s = p.read_text()
           s = s.replace('ImGuiCol_TabSelected', 'ImGuiCol_TabActive')
+          p.write_text(s)
+
+          p = Path('source/image.cpp')
+          s = p.read_text()
+          s = s.replace('#include <string>\n', '#define IMGUI_DEFINE_MATH_OPERATORS\n#include <string>\n', 1)
+          s = s.replace('#define IMGUI_DEFINE_MATH_OPERATORS\n#include "imgui_internal.h"', '#include "imgui_internal.h"')
+          s = s.replace('ImGuiKey_GamepadDpadDown', 'ImGuiKey_DownArrow')
+          s = s.replace('ImGuiKey_GamepadDpadUp', 'ImGuiKey_UpArrow')
           p.write_text(s)
           PY
 
