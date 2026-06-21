@@ -49,6 +49,72 @@ jobs:
           cp /tmp/libusbhsfs/include/usbhsfs.h libs/usbhsfs.h
           curl -L https://raw.githubusercontent.com/nothings/stb/master/stb_image.h -o libs/stb_image.h
 
+      - name: Use compact Chinese UI font atlas
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('source/gui.cpp')
+          s = p.read_text(errors='ignore')
+          old = '''        ImFont* bundled_chinese_font = io.Fonts->AddFontFromMemoryTTF(
+            const_cast<unsigned char *>(nx_shell_chinese_font_otf),
+            static_cast<int>(nx_shell_chinese_font_otf_end - nx_shell_chinese_font_otf),
+            20.f,
+            std::addressof(font_cfg),
+            io.Fonts->GetGlyphRangesChineseFull()
+        );
+
+        if (!bundled_chinese_font) {
+            Log::Error("Could not load embedded NotoSansCJKsc-Regular font.");
+            return false;
+        }
+
+        u8 *px = nullptr;
+        int w = 0, h = 0, bpp = 0;
+        io.Fonts->GetTexDataAsAlpha8(std::addressof(px), std::addressof(w), std::addressof(h), std::addressof(bpp));
+        io.Fonts->Flags |= ImFontAtlasFlags_NoPowerOfTwoHeight;
+        io.Fonts->Build();'''
+          new = '''        ImFontGlyphRangesBuilder glyph_builder;
+        glyph_builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
+        glyph_builder.AddText(
+            "确定取消选项全选属性重命名新建文件夹新建文件复制移动粘贴删除设置归档位"
+            "输入名称文件名称正在复制大小创建时间修改时间访问时间宽度高度"
+            "此操作无法撤销要删除以下项目解压压缩包可能需要一些时间正在解压"
+            "设置排序语言卸载设备图片查看器开发者多字符集关闭可提升启动速度关于检查更新"
+            "显示启用日志特殊符号字符支持版本作者横幅无法连接网络可用下载安装成功请退出并重新运行"
+        );
+        ImVector<ImWchar> glyph_ranges;
+        glyph_builder.BuildRanges(&glyph_ranges);
+        font_cfg.OversampleH = 1;
+        font_cfg.OversampleV = 1;
+        font_cfg.PixelSnapH = true;
+
+        ImFont* bundled_chinese_font = io.Fonts->AddFontFromMemoryTTF(
+            const_cast<unsigned char *>(nx_shell_chinese_font_otf),
+            static_cast<int>(nx_shell_chinese_font_otf_end - nx_shell_chinese_font_otf),
+            20.f,
+            std::addressof(font_cfg),
+            glyph_ranges.Data
+        );
+
+        if (!bundled_chinese_font) {
+            Log::Error("Could not load embedded NotoSansCJKsc-Regular font.");
+            return false;
+        }
+
+        io.Fonts->Flags |= ImFontAtlasFlags_NoPowerOfTwoHeight;
+        if (!io.Fonts->Build()) {
+            Log::Error("Could not build compact Chinese font atlas.");
+            return false;
+        }
+
+        u8 *px = nullptr;
+        int w = 0, h = 0, bpp = 0;
+        io.Fonts->GetTexDataAsAlpha8(std::addressof(px), std::addressof(w), std::addressof(h), std::addressof(bpp));'''
+          if old not in s:
+              raise SystemExit('Expected embedded font block not found')
+          p.write_text(s.replace(old, new))
+          PY
+
       - name: Apply compiler compatibility fixes
         run: |
           python3 - <<'PY'
@@ -86,8 +152,8 @@ jobs:
           make -j2
           test -f NX-Shell.nro
 
-      - name: Upload artifact
+      - name: Upload compact-atlas artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NX-Shell_CN_NotoMemory
+          name: NX-Shell_CN_NotoCompactAtlas
           path: NX-Shell.nro
