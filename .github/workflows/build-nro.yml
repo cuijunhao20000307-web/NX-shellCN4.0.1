@@ -1,0 +1,71 @@
+name: Build NX-Shell NRO
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Install build dependencies
+        run: |
+          dkp-pacman -Syu --noconfirm || true
+          dkp-pacman -S --noconfirm \
+            switch-dev \
+            switch-curl \
+            switch-freetype \
+            switch-libpng \
+            switch-libjpeg-turbo \
+            switch-libwebp \
+            switch-giflib \
+            switch-jansson \
+            switch-mesa \
+            switch-glad \
+            switch-zlib \
+            devkitA64
+
+      - name: Restore pinned Dear ImGui source
+        run: |
+          rm -rf libs/imgui
+          git clone --depth 1 --branch v1.88.2 https://github.com/ocornut/imgui.git libs/imgui
+          test -f libs/imgui/imgui.cpp
+          test -f libs/imgui/misc/freetype/imgui_freetype.cpp
+
+      - name: Verify bundled libraries
+        run: |
+          test -f libs/libnsbmp/libnsbmp.c
+          test -f libs/libnsbmp/libnsbmp.h
+          test -f libs/lib/libusbhsfs.a
+
+      - name: Build NRO
+        run: |
+          make clean
+          make -j"$(nproc)"
+          test -f NX-Shell.nro
+
+      - name: Package release files
+        run: |
+          mkdir -p release
+          cp NX-Shell.nro release/NX-Shell_CN.nro
+          cp README.md release/README.md
+          zip -j NX-Shell_CN_NRO.zip release/NX-Shell_CN.nro release/README.md
+
+      - name: Upload NRO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NX-Shell_CN_NRO
+          path: |
+            release/NX-Shell_CN.nro
+            NX-Shell_CN_NRO.zip
+          if-no-files-found: error
