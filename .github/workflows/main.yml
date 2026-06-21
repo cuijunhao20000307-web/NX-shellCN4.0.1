@@ -15,30 +15,16 @@ jobs:
       - name: Install deps
         run: |
           apt-get update
-          apt-get install -y git make pkg-config zip
+          apt-get install -y git make pkg-config zip python3
           dkp-pacman -Syu --noconfirm || true
           dkp-pacman -S --noconfirm switch-dev switch-freetype switch-libpng switch-zlib switch-glad switch-mesa --needed || true
 
       - name: Fix freetype-config
         run: |
-          cat > /usr/local/bin/freetype-config <<'EOF'
-          #!/bin/sh
-          case "$1" in
-            --cflags)
-              echo "-I/opt/devkitpro/portlibs/switch/include/freetype2 -I/opt/devkitpro/portlibs/switch/include"
-              ;;
-            --libs)
-              echo "-L/opt/devkitpro/portlibs/switch/lib -lfreetype"
-              ;;
-            *)
-              echo ""
-              ;;
-          esac
-          EOF
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '  --cflags)' '    echo "-I/opt/devkitpro/portlibs/switch/include/freetype2 -I/opt/devkitpro/portlibs/switch/include"' '    ;;' '  --libs)' '    echo "-L/opt/devkitpro/portlibs/switch/lib -lfreetype"' '    ;;' '  *)' '    echo ""' '    ;;' 'esac' > /usr/local/bin/freetype-config
           chmod +x /usr/local/bin/freetype-config
-          which freetype-config
-          freetype-config --cflags
-          freetype-config --libs
+          /usr/local/bin/freetype-config --cflags
+          /usr/local/bin/freetype-config --libs
 
       - name: Fix imgui dependency
         run: |
@@ -49,7 +35,7 @@ jobs:
           rm -rf libes/imgui
           cp -r libs/imgui libes/imgui
 
-      - name: Patch imgui enum compatibility
+      - name: Patch source compatibility
         run: |
           python3 - <<'PY'
           from pathlib import Path
