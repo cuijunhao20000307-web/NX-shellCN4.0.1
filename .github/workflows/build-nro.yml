@@ -51,17 +51,20 @@ jobs:
           git clone --depth 1 --branch v1.89.9 https://github.com/ocornut/imgui.git libs/imgui
           cp -r libs/imgui libes/imgui
 
-      - name: Restore original libnsbmp layout
+      - name: Restore matching legacy libnsbmp
         run: |
-          rm -rf /tmp/libnsbmp-src libs/libnsbmp libs/include
-          git clone --depth 1 https://github.com/netsurf-browser/libnsbmp.git /tmp/libnsbmp-src
+          rm -rf /tmp/nx-shell-upstream libs/libnsbmp libs/include
+          git init -q /tmp/nx-shell-upstream
+          git -C /tmp/nx-shell-upstream remote add origin https://github.com/joel16/NX-Shell.git
+          git -C /tmp/nx-shell-upstream fetch -q --depth 1 origin 700aa486076c6353fd8245d930925a977612cf11
+          git -C /tmp/nx-shell-upstream checkout -q FETCH_HEAD
           mkdir -p libs/libnsbmp/utils libs/include
-          cp /tmp/libnsbmp-src/src/libnsbmp.c libs/libnsbmp/libnsbmp.c
-          cp /tmp/libnsbmp-src/include/libnsbmp.h libs/libnsbmp/libnsbmp.h
-          cp /tmp/libnsbmp-src/include/libnsbmp.h libs/include/libnsbmp.h
-          printf '%s\n' '#ifndef LIBNSBMP_UTILS_LOG_H' '#define LIBNSBMP_UTILS_LOG_H' '#define LOG(...) ((void)0)' '#endif' > libs/libnsbmp/utils/log.h
-          test -f libs/libnsbmp/libnsbmp.c
-          test -f libs/libnsbmp/libnsbmp.h
+          cp /tmp/nx-shell-upstream/libs/libnsbmp/libnsbmp.c libs/libnsbmp/libnsbmp.c
+          cp /tmp/nx-shell-upstream/libs/libnsbmp/libnsbmp.h libs/libnsbmp/libnsbmp.h
+          cp /tmp/nx-shell-upstream/libs/libnsbmp/utils/log.h libs/libnsbmp/utils/log.h
+          cp /tmp/nx-shell-upstream/libs/libnsbmp/libnsbmp.h libs/include/libnsbmp.h
+          grep -q 'bmp_finalise' libs/libnsbmp/libnsbmp.c
+          grep -q 'bmp_finalise' libs/libnsbmp/libnsbmp.h
 
       - name: Build matching libusbhsfs 0.2.7
         run: |
