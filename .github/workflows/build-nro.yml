@@ -15,47 +15,102 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-        with:
-          submodules: false
 
-      - name: Install available Switch dependencies
+      - name: Install dependencies
         shell: bash
         run: |
+          apt-get update
+          apt-get install -y git make pkg-config python3 curl
           dkp-pacman -Syu --noconfirm || true
           for pkg in \
             switch-dev \
-            switch-curl \
             switch-freetype \
             switch-libpng \
+            switch-zlib \
+            switch-glad \
+            switch-mesa \
             switch-libjpeg-turbo \
             switch-libwebp \
             switch-giflib \
-            switch-jansson \
-            switch-mesa \
-            switch-glad \
-            switch-zlib \
-            devkitA64; do
-            dkp-pacman -S --noconfirm "$pkg" || true
+            switch-libusbhsfs; do
+            dkp-pacman -S --noconfirm "$pkg" --needed || true
           done
 
-      - name: Restore compatible Dear ImGui source
+      - name: Fix freetype-config
         run: |
-          rm -rf libs/imgui
-          git clone --depth 1 --branch v1.89.9 https://github.com/ocornut/imgui.git libs/imgui
-          test -f libs/imgui/imgui.cpp
-          test -f libs/imgui/misc/freetype/imgui_freetype.cpp
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '  --cflags)' '    echo "-I/opt/devkitpro/portlibs/switch/include/freetype2 -I/opt/devkitpro/portlibs/switch/include"' '    ;;' '  --libs)' '    echo "-L/opt/devkitpro/portlibs/switch/lib -lfreetype"' '    ;;' 'esac' > /usr/local/bin/freetype-config
+          chmod +x /usr/local/bin/freetype-config
 
-      - name: Verify project files
+      - name: Get compatible Dear ImGui
         run: |
+          mkdir -p libs libes
+          rm -rf libs/imgui libes/imgui
+          git clone --depth 1 --branch v1.89.9 https://github.com/ocornut/imgui.git libs/imgui
+          cp -r libs/imgui libes/imgui
+
+      - name: Restore missing libnsbmp source
+        run: |
+          rm -rf /tmp/libnsbmp-src libs/libnsbmp libs/include
+          git clone --depth 1 https://github.com/netsurf-browser/libnsbmp.git /tmp/libnsbmp-src
+          mkdir -p libs/libnsbmp libs/include libs/libnsbmp/utils
+          find /tmp/libnsbmp-src -name '*.h' -exec cp {} libs/libnsbmp/ \;
+          find /tmp/libnsbmp-src -name '*.c' -exec cp {} libs/libnsbmp/ \;
+          printf '%s\n' '#ifndef LIBNSBMP_UTILS_LOG_H' '#define LIBNSBMP_UTILS_LOG_H' '#define LOG(...) ((void)0)' '#endif' > libs/libnsbmp/utils/log.h
+          cp libs/libnsbmp/libnsbmp.h libs/include/libnsbmp.h
           test -f libs/libnsbmp/libnsbmp.c
-          test -f libs/libnsbmp/libnsbmp.h
-          test -f libs/lib/libusbhsfs.a
-          test -f res/NotoSansCJKsc-Regular.otf
+          test -f libs/include/libnsbmp.h
+
+      - name: Get stb_image
+        run: |
+          curl -L https://raw.githubusercontent.com/nothings/stb/master/stb_image.h -o libs/stb_image.h
+          test -f libs/stb_image.h
+
+      - name: Patch source compatibility
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('source/gui.cpp')
+          if p.exists():
+              s = p.read_text(errors='ignore').replace('ImGuiCol_TabSelected', 'ImGuiCol_TabActive')
+              p.write_text(s)
+
+          p = Path('source/image.cpp')
+          if p.exists():
+              s = p.read_text(errors='ignore')
+              if 'IMGUI_DEFINE_MATH_OPERATORS' not in s.splitlines()[:5]:
+                  s = '#define IMGUI_DEFINE_MATH_OPERATORS\n' + s
+              s = s.replace('#define IMGUI_DEFINE_MATH_OPERATORS\n#include "imgui_internal.h"', '#include "imgui_internal.h"')
+              s = s.replace('ImGuiKey_GamepadDpadDown', 'ImGuiKey_DownArrow')
+              s = s.replace('ImGuiKey_GamepadDpadUp', 'ImGuiKey_UpArrow')
+              p.write_text(s)
+
+          p = Path('source/tabs/settings.cpp')
+          if p.exists():
+              s = p.read_text(errors='ignore')
+              if 'IMGUI_DEFINE_MATH_OPERATORS' not in s.splitlines()[:5]:
+                  s = '#define IMGUI_DEFINE_MATH_OPERATORS\n' + s
+              p.write_text(s)
+
+          p = Path('source/popups/properties.cpp')
+          if p.exists():
+              s = p.read_text(errors='ignore')
+              if '#include <ctime>' not in s:
+                  s = s.replace('#include "utils.hpp"', '#include "utils.hpp"\n#include <ctime>')
+              p.write_text(s)
+
+          p = Path('source/textures.cpp')
+          if p.exists():
+              s = p.read_text(errors='ignore')
+              s = re.sub(r'bmp_bitmap_callback_vt\s+bitmap_callbacks\s*=\s*\{[^\}]*\};', 'bmp_bitmap_callback_vt bitmap_callbacks = {\n            BMP::bitmap_create,\n            BMP::bitmap_destroy,\n            BMP::bitmap_get_buffer\n        };', s, count=1, flags=re.S)
+              p.write_text(s)
+          PY
 
       - name: Build NRO
         run: |
           make clean
-          make -j"$(nproc)"
+          make -j2
           test -f NX-Shell.nro
 
       - name: Prepare artifact
