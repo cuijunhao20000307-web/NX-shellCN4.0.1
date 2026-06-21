@@ -5,7 +5,7 @@
 #include "language.hpp"
 #include "popups.hpp"
 #include "utils.hpp"
-
+#include <ctime>
 namespace Popups {
     static char *FormatDate(char *string, time_t timestamp) {
         strftime(string, 36, "%Y/%m/%d %H:%M:%S", localtime(std::addressof(timestamp)));
