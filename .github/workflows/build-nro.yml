@@ -16,6 +16,12 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Restore stable Chinese font backend
+        run: |
+          git fetch -q --depth 1 origin b4c4e03ac725a91146a7098b919e5bcd188363d1
+          git show FETCH_HEAD:source/gui.cpp > source/gui.cpp
+          grep -q 'NotoSansCJKsc-Regular.otf' source/gui.cpp
+
       - name: Install dependencies
         shell: bash
         run: |
