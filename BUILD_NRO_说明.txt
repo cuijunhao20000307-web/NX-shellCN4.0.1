@@ -1,0 +1,14 @@
+生成 NRO 方法：
+
+1. 把这个压缩包解压。
+2. 打开 GitHub，创建一个新仓库。
+3. 把解压后的所有文件上传到仓库根目录。
+4. 进入 Actions 页面。
+5. 点击 “Build NX-Shell NRO”。
+6. 点击 “Run workflow”。
+7. 编译完成后，在页面底部 Artifacts 下载 “NX-Shell_CN_NRO”。
+8. 解压后得到：NX-Shell_CN.nro
+9. 放到 SD 卡：/switch/NX-Shell/NX-Shell_CN.nro
+
+如果打开后不是中文：
+删除 SD 卡里的 /switch/NX-Shell/config.json 后重新打开。
