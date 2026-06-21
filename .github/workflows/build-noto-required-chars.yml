@@ -1,0 +1,140 @@
+name: Build Noto Required Characters NRO
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build and font subset tools
+        run: |
+          apt-get update
+          apt-get install -y git make python3 python3-pip curl
+          python3 -m pip install --break-system-packages fonttools
+          dkp-pacman -Syu --noconfirm || true
+          for p in switch-dev switch-freetype switch-harfbuzz switch-bzip2 switch-libpng switch-zlib switch-glad switch-mesa switch-libjpeg-turbo switch-libwebp switch-giflib; do
+            dkp-pacman -S --noconfirm "$p" --needed || true
+          done
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '  --cflags) echo "-I/opt/devkitpro/portlibs/switch/include/freetype2 -I/opt/devkitpro/portlibs/switch/include" ;;' '  --libs) echo "-L/opt/devkitpro/portlibs/switch/lib -Wl,--start-group -lfreetype -lharfbuzz -lbz2 -Wl,--end-group" ;;' 'esac' > /usr/local/bin/freetype-config
+          chmod +x /usr/local/bin/freetype-config
+
+      - name: Build exact requested Chinese font subset
+        run: |
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf -o /tmp/NotoSansCJKsc-Regular.otf
+          cat > /tmp/nx-shell-required-chars.txt <<'EOF'
+一 下 不 为 于 些 以 件 位 作 修 入 全 关 出 创 删 制 前 功 动 包 升 卸 压 发 取 可 号 名 吗 否 启 命 器 图 在 备 复 多 大 夹 字 安 定 宽 小 属 已 幅 并 序 应 度 建 开 归 当 志 性 成 所 持 排 接 提 撤 操 支 改 文 新 无 日 时 是 显 更 最 有 本 查 档 检 横 正 此 殊 法 浏 消 片 版 特 现 用 的 目 看 确 示 称 移 空 符 粘 络 缩 网 置 者 能 行 装 要 览 解 言 设 访 语 请 贴 载 输 运 连 退 选 速 重 销 闭 问 间 除 集 需 项 高
+ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789
+NX-Shell
+，。！？：；（）【】《》“”‘’、·—…￥+-_=./\\|@#%&*<>:;!?()[]{}\"'
+EOF
+          python3 -m fontTools.subset /tmp/NotoSansCJKsc-Regular.otf \
+            --output-file=res/NotoSansCJKsc-Required.otf \
+            --text-file=/tmp/nx-shell-required-chars.txt \
+            --layout-features='' \
+            --no-hinting \
+            --drop-tables+=DSIG \
+            --name-IDs='*' \
+            --name-legacy \
+            --symbol-cmap \
+            --legacy-cmap \
+            --notdef-glyph \
+            --notdef-outline \
+            --recommended-glyphs
+          test -s res/NotoSansCJKsc-Required.otf
+          echo "Required-glyph font size: $(du -h res/NotoSansCJKsc-Required.otf | cut -f1)"
+          sed -i 's#NotoSansCJKsc-Regular.otf#NotoSansCJKsc-Required.otf#' source/noto_sans_cjk_sc.s
+
+      - name: Restore project dependencies
+        run: |
+          rm -rf libs/imgui libes/imgui
+          git clone --depth 1 --branch v1.89.9 https://github.com/ocornut/imgui.git libs/imgui
+          mkdir -p libes
+          cp -r libs/imgui libes/imgui
+          rm -rf /tmp/nx-shell libs/libnsbmp libs/include
+          git clone --depth 1 https://github.com/joel16/NX-Shell.git /tmp/nx-shell
+          mkdir -p libs/libnsbmp/utils libs/include
+          cp /tmp/nx-shell/libs/libnsbmp/libnsbmp.c libs/libnsbmp/libnsbmp.c
+          cp /tmp/nx-shell/libs/libnsbmp/libnsbmp.h libs/libnsbmp/libnsbmp.h
+          cp /tmp/nx-shell/libs/libnsbmp/utils/log.h libs/libnsbmp/utils/log.h
+          cp /tmp/nx-shell/libs/libnsbmp/libnsbmp.h libs/include/libnsbmp.h
+          rm -rf /tmp/libusbhsfs
+          git clone --depth 1 --branch v0.2.7 https://github.com/DarkMatterCore/libusbhsfs.git /tmp/libusbhsfs
+          sed -i 's/-Werror /-Werror -Wno-error=unused-but-set-variable /' /tmp/libusbhsfs/Makefile
+          make -C /tmp/libusbhsfs BUILD_TYPE=ISC release
+          mkdir -p libs/lib
+          cp /tmp/libusbhsfs/lib/libusbhsfs.a libs/lib/libusbhsfs.a
+          cp /tmp/libusbhsfs/include/usbhsfs.h libs/usbhsfs.h
+          curl -L https://raw.githubusercontent.com/nothings/stb/master/stb_image.h -o libs/stb_image.h
+
+      - name: Use FreeType, requested glyphs, and 22px UI font
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          required = "一 下 不 为 于 些 以 件 位 作 修 入 全 关 出 创 删 制 前 功 动 包 升 卸 压 发 取 可 号 名 吗 否 启 命 器 图 在 备 复 多 大 夹 字 安 定 宽 小 属 已 幅 并 序 应 度 建 开 归 当 志 性 成 所 持 排 接 提 撤 操 支 改 文 新 无 日 时 是 显 更 最 有 本 查 档 检 横 正 此 殊 法 浏 消 片 版 特 现 用 的 目 看 确 示 称 移 空 符 粘 络 缩 网 置 者 能 行 装 要 览 解 言 设 访 语 请 贴 载 输 运 连 退 选 速 重 销 闭 问 间 除 集 需 项 高"
+
+          p = Path('source/gui.cpp')
+          s = p.read_text(errors='ignore')
+          if '#include "imgui_freetype.h"' not in s:
+              s = s.replace('#include "imgui_impl_switch.hpp"', '#include "imgui_impl_switch.hpp"\n#include "imgui_freetype.h"')
+          marker = 'ImGui_ImplSwitch_Init("#version 130");'
+          if 'FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType()' not in s:
+              s = s.replace(marker, marker + '\n\n        io.Fonts->FontBuilderIO = ImGuiFreeType::GetBuilderForFreeType();')
+          if 'glyph_builder.AddText("' + required + '");' not in s:
+              s = s.replace('glyph_builder.AddText("NX-Shell");', 'glyph_builder.AddText("NX-Shell");\n        glyph_builder.AddText("' + required + '");')
+          s = s.replace('20.f,', '22.f,')
+          p.write_text(s)
+
+          p = Path('source/image.cpp')
+          if p.exists():
+              s = p.read_text(errors='ignore')
+              if 'IMGUI_DEFINE_MATH_OPERATORS' not in s.splitlines()[:5]:
+                  s = '#define IMGUI_DEFINE_MATH_OPERATORS\n' + s
+              s = s.replace('#define IMGUI_DEFINE_MATH_OPERATORS\n#include "imgui_internal.h"', '#include "imgui_internal.h"')
+              s = s.replace('ImGuiKey_GamepadDpadDown', 'ImGuiKey_DownArrow')
+              s = s.replace('ImGuiKey_GamepadDpadUp', 'ImGuiKey_UpArrow')
+              p.write_text(s)
+
+          p = Path('source/tabs/settings.cpp')
+          if p.exists():
+              s = p.read_text(errors='ignore')
+              if 'IMGUI_DEFINE_MATH_OPERATORS' not in s.splitlines()[:5]:
+                  p.write_text('#define IMGUI_DEFINE_MATH_OPERATORS\n' + s)
+
+          p = Path('source/popups/properties.cpp')
+          if p.exists():
+              s = p.read_text(errors='ignore')
+              if '#include <ctime>' not in s:
+                  p.write_text(s.replace('#include "utils.hpp"', '#include "utils.hpp"\n#include <ctime>'))
+
+          p = Path('source/textures.cpp')
+          if p.exists():
+              s = p.read_text(errors='ignore')
+              s = re.sub(r'bmp_bitmap_callback_vt\s+bitmap_callbacks\s*=\s*\{[^\}]*\};', 'bmp_bitmap_callback_vt bitmap_callbacks = {\n            BMP::bitmap_create,\n            BMP::bitmap_destroy,\n            BMP::bitmap_get_buffer\n        };', s, count=1, flags=re.S)
+              p.write_text(s)
+          PY
+          grep -q 'GetBuilderForFreeType' source/gui.cpp
+          grep -q 'glyph_builder.AddText("一 下 不 为' source/gui.cpp
+          grep -q 'NotoSansCJKsc-Required.otf' source/noto_sans_cjk_sc.s
+
+      - name: Build NRO
+        run: |
+          make clean
+          make -j2
+          test -f NX-Shell.nro
+          echo "NRO size: $(du -h NX-Shell.nro | cut -f1)"
+
+      - name: Upload compressed artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NX-Shell_CN_Noto_Required_22px
+          path: NX-Shell.nro
+          compression-level: 9
+          if-no-files-found: error
