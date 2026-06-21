@@ -31,8 +31,7 @@ jobs:
             switch-mesa \
             switch-libjpeg-turbo \
             switch-libwebp \
-            switch-giflib \
-            switch-libusbhsfs; do
+            switch-giflib; do
             dkp-pacman -S --noconfirm "$pkg" --needed || true
           done
 
@@ -48,17 +47,28 @@ jobs:
           git clone --depth 1 --branch v1.89.9 https://github.com/ocornut/imgui.git libs/imgui
           cp -r libs/imgui libes/imgui
 
-      - name: Restore missing libnsbmp source
+      - name: Restore original libnsbmp layout
         run: |
           rm -rf /tmp/libnsbmp-src libs/libnsbmp libs/include
           git clone --depth 1 https://github.com/netsurf-browser/libnsbmp.git /tmp/libnsbmp-src
-          mkdir -p libs/libnsbmp libs/include libs/libnsbmp/utils
-          find /tmp/libnsbmp-src -name '*.h' -exec cp {} libs/libnsbmp/ \;
-          find /tmp/libnsbmp-src -name '*.c' -exec cp {} libs/libnsbmp/ \;
+          mkdir -p libs/libnsbmp/utils libs/include
+          cp /tmp/libnsbmp-src/src/libnsbmp.c libs/libnsbmp/libnsbmp.c
+          cp /tmp/libnsbmp-src/include/libnsbmp.h libs/libnsbmp/libnsbmp.h
+          cp /tmp/libnsbmp-src/include/libnsbmp.h libs/include/libnsbmp.h
           printf '%s\n' '#ifndef LIBNSBMP_UTILS_LOG_H' '#define LIBNSBMP_UTILS_LOG_H' '#define LOG(...) ((void)0)' '#endif' > libs/libnsbmp/utils/log.h
-          cp libs/libnsbmp/libnsbmp.h libs/include/libnsbmp.h
           test -f libs/libnsbmp/libnsbmp.c
-          test -f libs/include/libnsbmp.h
+          test -f libs/libnsbmp/libnsbmp.h
+
+      - name: Build matching libusbhsfs 0.2.7
+        run: |
+          rm -rf /tmp/libusbhsfs
+          git clone --depth 1 --branch v0.2.7 https://github.com/DarkMatterCore/libusbhsfs.git /tmp/libusbhsfs
+          make -C /tmp/libusbhsfs BUILD_TYPE=ISC release
+          mkdir -p libs/lib
+          cp /tmp/libusbhsfs/lib/libusbhsfs.a libs/lib/libusbhsfs.a
+          cp /tmp/libusbhsfs/include/usbhsfs.h libs/usbhsfs.h
+          test -f libs/lib/libusbhsfs.a
+          test -f libs/usbhsfs.h
 
       - name: Get stb_image
         run: |
