@@ -65,15 +65,22 @@ jobs:
         run: |
           rm -rf /tmp/libnsbmp-src
           rm -rf libs/libnsbmp
+          rm -rf libs/include
 
           git clone --depth 1 \
             https://github.com/netsurf-browser/libnsbmp.git \
             /tmp/libnsbmp-src
 
           mkdir -p libs/libnsbmp
+          mkdir -p libs/include
 
           find /tmp/libnsbmp-src -name "*.h" -exec cp {} libs/libnsbmp/ \;
           find /tmp/libnsbmp-src -name "*.c" -exec cp {} libs/libnsbmp/ \;
+
+          cp libs/libnsbmp/libnsbmp.h libs/include/libnsbmp.h
+
+          ls -la libs/libnsbmp
+          ls -la libs/include
 
       - name: Get stb_image
         run: |
@@ -100,17 +107,28 @@ jobs:
           p = Path("source/image.cpp")
           if p.exists():
               s = p.read_text(errors="ignore")
-              s = s.replace(
-                  "#include <string>\n",
-                  "#define IMGUI_DEFINE_MATH_OPERATORS\n#include <string>\n",
-                  1
-              )
+              if "IMGUI_DEFINE_MATH_OPERATORS" not in s.splitlines()[:5]:
+                  s = "#define IMGUI_DEFINE_MATH_OPERATORS\n" + s
               s = s.replace(
                   '#define IMGUI_DEFINE_MATH_OPERATORS\n#include "imgui_internal.h"',
                   '#include "imgui_internal.h"'
               )
               s = s.replace("ImGuiKey_GamepadDpadDown", "ImGuiKey_DownArrow")
               s = s.replace("ImGuiKey_GamepadDpadUp", "ImGuiKey_UpArrow")
+              p.write_text(s)
+
+          p = Path("source/tabs/settings.cpp")
+          if p.exists():
+              s = p.read_text(errors="ignore")
+              if "IMGUI_DEFINE_MATH_OPERATORS" not in s.splitlines()[:5]:
+                  s = "#define IMGUI_DEFINE_MATH_OPERATORS\n" + s
+              p.write_text(s)
+
+          p = Path("source/popups/properties.cpp")
+          if p.exists():
+              s = p.read_text(errors="ignore")
+              if "#include <ctime>" not in s:
+                  s = s.replace('#include "utils.hpp"', '#include "utils.hpp"\n#include <ctime>')
               p.write_text(s)
 
           p = Path("source/textures.cpp")
