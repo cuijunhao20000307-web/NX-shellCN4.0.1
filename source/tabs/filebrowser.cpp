@@ -154,7 +154,14 @@ namespace Tabs {
                     ImGui::SameLine();
 
                     if (ImGui::Selectable(data.entries[i].name, false)) {
-                        if (data.entries[i].type == FsDirEntryType_Dir) {
+                        const bool has_checked_items_in_current_dir =
+                            data.checkbox_data.count > 0 &&
+                            data.checkbox_data.cwd == cwd &&
+                            data.checkbox_data.device == device;
+
+                        // When Y has selected an item, X must open the action menu only.
+                        // Do not allow an accidental Selectable activation to enter a folder.
+                        if (data.entries[i].type == FsDirEntryType_Dir && !has_checked_items_in_current_dir) {
                             if (std::strncmp(data.entries[i].name, "..", 2) == 0) {
                                 if (FS::ChangeDirPrev(data.entries)) {
                                     if ((data.checkbox_data.count > 1) && (data.checkbox_data.checked_copy.empty()))
@@ -172,7 +179,7 @@ namespace Tabs {
 
                             ImGuiTableSortSpecs *sorts_specs = ImGui::TableGetSortSpecs();
                             sorts_specs->SpecsDirty = true;
-                        } else {
+                        } else if (data.entries[i].type != FsDirEntryType_Dir) {
                             std::string path = FS::BuildPath(data.entries[i]);
 
                             switch (file_type) {
