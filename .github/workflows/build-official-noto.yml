@@ -1,4 +1,4 @@
-name: Build Official Noto Font NRO
+name: Build Stable Official Noto Font + Folder Fix
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
           printf '%s\n' '#!/bin/sh' 'case "$1" in' '  --cflags) echo "-I/opt/devkitpro/portlibs/switch/include/freetype2 -I/opt/devkitpro/portlibs/switch/include" ;;' '  --libs) echo "-L/opt/devkitpro/portlibs/switch/lib -Wl,--start-group -lfreetype -lharfbuzz -lbz2 -Wl,--end-group" ;;' 'esac' > /usr/local/bin/freetype-config
           chmod +x /usr/local/bin/freetype-config
 
-      - name: Download official Noto Sans CJK SC
+      - name: Download verified official Noto Sans CJK SC
         run: |
           curl -L --fail --retry 3 https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf -o res/NotoSansCJKsc-Regular.otf
           test -s res/NotoSansCJKsc-Regular.otf
@@ -51,7 +51,7 @@ jobs:
           cp /tmp/libusbhsfs/include/usbhsfs.h libs/usbhsfs.h
           curl -L https://raw.githubusercontent.com/nothings/stb/master/stb_image.h -o libs/stb_image.h
 
-      - name: Force FreeType OTF renderer and source fixes
+      - name: Force FreeType renderer and compatibility fixes
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -97,15 +97,17 @@ jobs:
           grep -q 'GetBuilderForFreeType' source/gui.cpp
           test -f source/noto_sans_cjk_sc.s
 
-      - name: Build NRO
+      - name: Build stable NRO
         run: |
           make clean
           make -j2
           test -f NX-Shell.nro
+          echo "NRO size: $(du -h NX-Shell.nro | cut -f1)"
 
-      - name: Upload artifact
+      - name: Upload stable artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NX-Shell_CN_Official_Noto
+          name: NX-Shell_CN_Stable_FullFont_22px
           path: NX-Shell.nro
+          compression-level: 9
           if-no-files-found: error
